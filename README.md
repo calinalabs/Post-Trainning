@@ -36,7 +36,7 @@ Most of the gain carries over to passages the model never trained on. It learned
 ## Run it
 
 ```bash
-git clone https://github.com/calinalabs/post-training && cd post-training
+git clone https://github.com/calinalabs/Post-Trainning && cd Post-Trainning
 ./get_data.sh                                   # public evaluation set (MIT licence) into ./data
 python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 export ANTHROPIC_API_KEY=...                    # only needed to regenerate the questions
