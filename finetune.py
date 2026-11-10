@@ -8,7 +8,7 @@ Experiments (all scored on the same 100 human-written test questions):
      scored separately on test questions about seen vs unseen passages
 Plus a leakage check: how close any training question is to any test question.
 
-    ../.venv/bin/python finetune.py --data ../rag-gemini/data --train data/train_questions.json --out results
+    python finetune.py --data data --train data/train_questions.json --out results
 """
 import argparse
 import hashlib
@@ -119,7 +119,7 @@ def main():
     clean = [q for q, s in zip(tests, best.tolist()) if s <= 0.9]
     res["B_no_close_match"] = {"untuned": evaluate(base, docs, clean), "finetuned": evaluate(model_b, docs, clean)}
     print("   without near-duplicates:", res["B_no_close_match"])
-    model_b.save(str(a.out.parent / "models" / "bge-small-finetuned"))
+    model_b.save(str(pathlib.Path("models") / "bge-small-finetuned"))
 
     print("C. Held-out check: train on half the passages")
     seen = {d["chunk_link"] for d in docs if half(d["chunk_link"]) == 0}

@@ -4,18 +4,57 @@
 The 100 evaluation questions are never read here: training data comes only
 from the passages themselves.
 
-    python3 gen_questions.py --data ../rag-gemini/data --out data/train_questions.json
+    python3 gen_questions.py --data data --out data/train_questions.json
+
+Standard library only. Reads ANTHROPIC_API_KEY from the environment or from
+~/.config/calinalabs/keys.env.
 """
 import argparse
 import concurrent.futures as cf
 import json
 import os
 import pathlib
+import random
 import re
 import sys
+import time
+import urllib.error
+import urllib.request
 
-sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent / "rag-gemini"))
-from run import Claude, load_keys  # noqa: E402  (same HTTP client and key loading)
+
+def load_keys():
+    f = pathlib.Path.home() / ".config" / "calinalabs" / "keys.env"
+    if f.exists():
+        for line in f.read_text().splitlines():
+            if "=" in line and not line.lstrip().startswith("#"):
+                k, v = line.split("=", 1)
+                os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
+
+
+class Claude:
+    URL = "https://api.anthropic.com/v1/messages"
+
+    def __init__(self):
+        self.key = os.environ["ANTHROPIC_API_KEY"]
+
+    def ask(self, model, prompt, max_tokens=1500, tries=10):
+        body = json.dumps({"model": model, "max_tokens": max_tokens,
+                           "messages": [{"role": "user", "content": prompt}]}).encode()
+        headers = {"content-type": "application/json", "x-api-key": self.key, "anthropic-version": "2023-06-01"}
+        for attempt in range(tries):
+            try:
+                with urllib.request.urlopen(urllib.request.Request(self.URL, data=body, headers=headers), timeout=120) as r:
+                    return "".join(b.get("text", "") for b in json.load(r)["content"])
+            except urllib.error.HTTPError as e:
+                if e.code in (429, 500, 502, 503, 529) and attempt < tries - 1:
+                    time.sleep(min(60, 2 ** attempt) + random.random())
+                    continue
+                raise RuntimeError(f"Claude API -> HTTP {e.code}: {e.read()[:300]!r}") from None
+            except urllib.error.URLError:
+                if attempt < tries - 1:
+                    time.sleep(2 ** attempt)
+                    continue
+                raise
 
 MODEL = "claude-haiku-5-5"
 PER_PASSAGE = 3
